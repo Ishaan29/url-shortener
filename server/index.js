@@ -3,7 +3,15 @@ const cors = require('cors');
 const morgan = require('morgan');
 const helmet = require('helmet');
 const yup = require('yup');
+const monk = require('monk');
+
 const { nanoid } = require('nanoid');
+
+require('dotenv').config();
+
+const db = monk(process.env.MONGO_URI);
+const urls = db.get('urls');
+urls.createIndex({'slug' : 1}, {unique: true});
 
 const app = express();
 
@@ -13,12 +21,21 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('./public'));
 
-app.get('/url/:id', (req, res) => {
-    //TODO: get a short url by id
-});
+// app.get('/url/:id', (req, res) => {
+//     //TODO: get a short url by id
+// });
 
-app.get('/:id', (req, res) => {
-    //TODO: redirect to url
+app.get('/:id', async (req, res) => {
+    const {id: slug} = req.params;
+    try{
+        const url = await urls.findOne({slug});
+        if(url){
+            res.redirect(url.url);
+        }
+        res.redirect(`/?error=${slug} not found`);
+    }catch (error) {
+        res.redirect(`/?error=Link not found`);
+    }
 });
 
 const schema = yup.object().shape({
@@ -36,12 +53,19 @@ app.post('/url', async (req,res, next) => {
         });
         if(!slug){
             slug = nanoid(5);
+        }else{
+            const existing = await urls.findOne({ slug });
+            if(existing){
+                throw new Error('Slug in use. 🍔');
+            }
         }
         slug = slug.toLowerCase();
-        res.json({
-            slug,
+        const newUrl = {
             url,
-        });
+            slug,
+        };
+        const created = await urls.insert(newUrl);
+        res.json(created);
     } catch (error){
         next(error);
     }
