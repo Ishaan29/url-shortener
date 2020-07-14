@@ -12,3 +12,8 @@ header h1{
     margin: 1rem;
     text-align: center;
 }
+
+#app {
+    width: 60%;
+    margin: 0 auto;
+}
